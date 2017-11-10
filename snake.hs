@@ -15,6 +15,11 @@ type Snake = [Position]
 
 data World = World { snake :: Snake, direction :: Direction } deriving (Show)
 
+data GameState = Playing World
+               | GameOver
+               deriving (Show)
+
+
 opposite :: Direction -> Direction
 opposite d = case d of
     North -> South
@@ -39,6 +44,17 @@ advance w newDir
     | otherwise = World { snake = slither (snake w) newDir
                         , direction = newDir
                         }
+
+playGame :: World -> [Direction] -> [GameState]
+playGame iw ds =
+    play (scanl advance iw ds)
+    where
+        play (w:rest)
+          | collision $ snake w = [GameOver]
+          | otherwise = Playing w : play rest
+        play [] = []
+        collision (x:xs) = any (== x) (tail xs)
+
 
 -- User input
 
@@ -78,8 +94,9 @@ renderWorld s w = do
 drawWorld = renderWorld '@'
 clearWorld = renderWorld ' '
 
-drawUpdate :: (World, World) -> IO ()
-drawUpdate (old, new) = clearWorld old >> drawWorld new
+drawUpdate :: (GameState, GameState) -> IO ()
+drawUpdate (_, GameOver) = clearScreen >> putStrLn "You died!"
+drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
 
 initialWorld = World { snake = [(1, x)| x <- [1..3]]
                      , direction = West
@@ -88,6 +105,6 @@ initialWorld = World { snake = [(1, x)| x <- [1..3]]
 main = do
     initScreen
     input <- getContents
-    let states = scanl advance initialWorld (parseInput input)
+    let states = playGame initialWorld (parseInput input)
     drawWorld initialWorld
     mapM_ drawUpdate $ zip states (tail states)
