@@ -13,7 +13,10 @@ data Command = Quit | Go Direction deriving (Show, Eq)
 type Position = (Int, Int)
 type Snake = [Position]
 
-data World = World { snake :: Snake, direction :: Direction } deriving (Show)
+data World = World { snake :: Snake
+                   , direction :: Direction
+                   , limits :: (Int, Int)
+                   } deriving (Show)
 
 data GameState = Playing World
                | GameOver
@@ -41,9 +44,9 @@ slither s d = (move d $ head s):(init s)
 advance :: World -> Direction -> World
 advance w newDir
     | newDir == opposite (direction w) = w
-    | otherwise = World { snake = slither (snake w) newDir
-                        , direction = newDir
-                        }
+    | otherwise = w { snake = slither (snake w) newDir
+                    , direction = newDir
+                    }
 
 playGame :: World -> [Direction] -> [GameState]
 playGame iw ds =
@@ -51,9 +54,12 @@ playGame iw ds =
     where
         play (w:rest)
           | collision $ snake w = [GameOver]
+          | any (outside $ limits w) (snake w) = [GameOver]
           | otherwise = Playing w : play rest
         play [] = []
         collision (x:xs) = any (== x) (tail xs)
+        outside (maxr, maxc) (r, c) =
+            r < 1 || r > maxr || c < 1 || c > maxc
 
 
 -- User input
@@ -86,6 +92,14 @@ draw char (row, col) = do
     setCursorPosition row col
     putChar char
 
+drawBorder :: World -> IO ()
+drawBorder w = do
+    let (r, c) = limits w
+    mapM_ (draw '*') [(0, x) | x <- [0..c+1]]
+    mapM_ (draw '*') [(r+1, x) | x <- [0..c+1]]
+    mapM_ (draw '*') [(x, 0) | x <- [0..r+1]]
+    mapM_ (draw '*') [(x, c+1) | x <- [0..r+1]]
+
 renderWorld :: Char -> World -> IO ()
 renderWorld s w = do
     mapM_ (draw s) (reverse $ snake w)
@@ -100,10 +114,12 @@ drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
 
 initialWorld = World { snake = [(1, x)| x <- [1..3]]
                      , direction = West
+                     , limits = (5, 5)
                      }
 
 main = do
     initScreen
+    drawBorder initialWorld
     input <- getContents
     let states = playGame initialWorld (parseInput input)
     drawWorld initialWorld
