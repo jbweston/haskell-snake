@@ -108,13 +108,14 @@ drawBorder w = do
     mapM_ (draw '*') [(x, 0) | x <- [0..r+1]]
     mapM_ (draw '*') [(x, c+1) | x <- [0..r+1]]
 
-renderWorld :: Char -> World -> IO ()
-renderWorld s w = do
+renderWorld :: Char -> Char -> World -> IO ()
+renderWorld s f w = do
+    draw f (food w)
     mapM_ (draw s) (reverse $ snake w)
     cursorBackward 1
 
-drawWorld = renderWorld '@'
-clearWorld = renderWorld ' '
+drawWorld = renderWorld '@' '#'
+clearWorld = renderWorld ' ' ' '
 
 drawUpdate :: (GameState, GameState) -> IO ()
 drawUpdate (_, GameOver) = clearScreen >> putStrLn "You died!"
