@@ -14,6 +14,7 @@ type Position = (Int, Int)
 type Snake = [Position]
 
 data World = World { snake :: Snake
+                   , food :: Position
                    , direction :: Direction
                    , limits :: (Int, Int)
                    } deriving (Show)
@@ -40,11 +41,18 @@ move d (r, c) = case d of
 slither :: Snake -> Direction -> Snake
 slither s d = (move d $ head s):(init s)
 
+eat :: Snake -> Direction -> Snake
+eat s d = (move d $ head s):s
 
 advance :: World -> Direction -> World
 advance w newDir
     | newDir == opposite (direction w) = w
-    | otherwise = w { snake = slither (snake w) newDir
+    | (move newDir $ head $ snake w) == (food w) = eaten
+    | otherwise = slithered
+    where slithered = w { snake = slither (snake w) newDir
+                        , direction = newDir
+                        }
+          eaten = w { snake = eat (snake w) newDir
                     , direction = newDir
                     }
 
@@ -113,6 +121,7 @@ drawUpdate (_, GameOver) = clearScreen >> putStrLn "You died!"
 drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
 
 initialWorld = World { snake = [(1, x)| x <- [1..3]]
+                     , food = (2, 2)
                      , direction = West
                      , limits = (5, 5)
                      }
