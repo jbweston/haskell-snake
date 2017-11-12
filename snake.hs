@@ -140,11 +140,11 @@ drawUpdate :: (GameState, GameState) -> IO ()
 drawUpdate (_, GameOver) = clearScreen >> putStrLn "You died!"
 drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
 
-initialWorld = World { snake = [(1, x)| x <- [1..3]]
-                     , food = (2, 2)
+initialWorld = World { snake = [(5, x)| x <- [10..13]]
+                     , food = (5, 5)
                      , direction = West
                      , rand = R.mkStdGen 0
-                     , limits = (5, 5)
+                     , limits = (20, 20)
                      }
 
 main = do
