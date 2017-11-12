@@ -1,4 +1,5 @@
 import Data.Maybe
+import qualified System.Random as R
 import System.IO
 import System.Console.ANSI
 
@@ -16,6 +17,7 @@ type Snake = [Position]
 data World = World { snake :: Snake
                    , food :: Position
                    , direction :: Direction
+                   , rand :: R.StdGen
                    , limits :: (Int, Int)
                    } deriving (Show)
 
@@ -44,6 +46,12 @@ slither s d = (move d $ head s):(init s)
 eat :: Snake -> Direction -> Snake
 eat s d = (move d $ head s):s
 
+randomPosition :: R.RandomGen g => (Int, Int) -> g -> (Position, g)
+randomPosition (maxr, maxc) g =
+    let (r, g1) = R.randomR (1, maxr) g
+        (c, g2) = R.randomR (1, maxc) g1
+    in ((r, c), g2)
+
 advance :: World -> Direction -> World
 advance w newDir
     | newDir == opposite (direction w) = w
@@ -54,7 +62,10 @@ advance w newDir
                         }
           eaten = w { snake = eat (snake w) newDir
                     , direction = newDir
+                    , food = newFood
+                    , rand = newRand
                     }
+          (newFood, newRand) = randomPosition (limits w) (rand w)
 
 playGame :: World -> [Direction] -> [GameState]
 playGame iw ds =
@@ -124,6 +135,7 @@ drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
 initialWorld = World { snake = [(1, x)| x <- [1..3]]
                      , food = (2, 2)
                      , direction = West
+                     , rand = R.mkStdGen 0
                      , limits = (5, 5)
                      }
 
