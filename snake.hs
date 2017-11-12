@@ -52,6 +52,14 @@ randomPosition (maxr, maxc) g =
         (c, g2) = R.randomR (1, maxc) g1
     in ((r, c), g2)
 
+randomFreePosition :: R.RandomGen g => (Int, Int) -> g -> Snake -> (Position, g)
+randomFreePosition lim g s =
+    head $ dropWhile inSnake (randomPositions g)
+    where inSnake (x, _) = x `elem` s
+          randomPositions h = r:randomPositions g'
+              where r@(_, g') = randomPosition lim h
+
+
 advance :: World -> Direction -> World
 advance w newDir
     | newDir == opposite (direction w) = w
@@ -65,7 +73,7 @@ advance w newDir
                     , food = newFood
                     , rand = newRand
                     }
-          (newFood, newRand) = randomPosition (limits w) (rand w)
+          (newFood, newRand) = randomFreePosition (limits w) (rand w) $ snake eaten
 
 playGame :: World -> [Direction] -> [GameState]
 playGame iw ds =
