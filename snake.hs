@@ -1,10 +1,11 @@
-import Data.Maybe
 import qualified System.Random as R
 import System.IO
 import System.Console.ANSI
 
 import Control.Monad (forever)
+import Control.Concurrent.Async
 import Pipes
+import Pipes.Concurrent
 import qualified Pipes.Prelude as P
 
 data Direction = North
@@ -200,6 +201,17 @@ main = do
     drawBorder initialWorld
     drawWorld initialWorld
 
-    runEffect $ for (getDirections (direction initialWorld)
-                     >-> transitions initialWorld)
-                (lift . drawUpdate)
+    let initialDir = direction initialWorld
+        run p = async $ runEffect p >> performGC
+        from = fromInput
+        to = toOutput
+
+    (outbox, inbox) <- spawn unbounded
+
+    inputTask <- run $ getDirections initialDir >-> to outbox
+    drawingTask <- run $ for
+        (from inbox >-> transitions initialWorld)
+        (lift . drawUpdate)
+
+    -- inputTask will end if 'q', drawingTask will end if we die
+    waitAny [inputTask, drawingTask]
