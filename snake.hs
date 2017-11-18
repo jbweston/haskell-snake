@@ -3,10 +3,12 @@ import System.IO
 import System.Console.ANSI
 
 import Control.Monad (forever)
+import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async
 import Pipes
 import Pipes.Concurrent
 import qualified Pipes.Prelude as P
+import Data.Monoid ((<>))
 
 data Direction = North
                | South
@@ -45,6 +47,11 @@ deltas = do
     P.scan remember (first, first) id
     where
         remember (_, a) b = (a, b)
+
+rateLimit :: Int -> Pipe b b IO ()
+rateLimit t = forever $ do
+    lift $ threadDelay (t * 1000000)
+    await >>= yield
 
 
 opposite :: Direction -> Direction
@@ -206,11 +213,13 @@ main = do
         from = fromInput
         to = toOutput
 
-    (outbox, inbox) <- spawn unbounded
+    (mO, mI) <- spawn unbounded
+    (dO, dI) <- spawn $ latest initialDir
 
-    inputTask <- run $ getDirections initialDir >-> to outbox
+    inputTask <- run $ getDirections initialDir >-> to (mO <> dO)
+    delayedTask <- run $ from dI >-> rateLimit 1 >-> to mO
     drawingTask <- run $ for
-        (from inbox >-> transitions initialWorld)
+        (from mI >-> transitions initialWorld)
         (lift . drawUpdate)
 
     -- inputTask will end if 'q', drawingTask will end if we die
