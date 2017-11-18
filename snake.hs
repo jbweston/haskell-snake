@@ -3,6 +3,10 @@ import qualified System.Random as R
 import System.IO
 import System.Console.ANSI
 
+import Control.Monad (forever)
+import Pipes
+import qualified Pipes.Prelude as P
+
 data Direction = North
                | South
                | East
@@ -24,6 +28,22 @@ data World = World { snake :: Snake
 data GameState = Playing World
                | GameOver
                deriving (Show)
+
+
+-- takeWhile (not . pred), but including the element that fails 'pred'
+takeUntilAfter :: Monad m => (a -> Bool) -> Pipe a a m ()
+takeUntilAfter p = do
+    v <- await
+    yield v
+    if p v then return () else takeUntilAfter p
+
+--  zip l (tail l), but as a pipe
+deltas :: Monad m => Pipe a (a,a) m ()
+deltas = do
+    first <- await
+    P.scan remember (first, first) id
+    where
+        remember (_, a) b = (a, b)
 
 
 opposite :: Direction -> Direction
@@ -75,18 +95,24 @@ advance w newDir
                     }
           (newFood, newRand) = randomFreePosition (limits w) (rand w) $ snake eaten
 
-playGame :: World -> [Direction] -> [GameState]
-playGame iw ds =
-    play (scanl advance iw ds)
+toGameState :: World -> GameState
+toGameState w
+    | collision $ snake w = GameOver
+    | any (outside $ limits w) (snake w) = GameOver
+    | otherwise = Playing w
     where
-        play (w:rest)
-          | collision $ snake w = [GameOver]
-          | any (outside $ limits w) (snake w) = [GameOver]
-          | otherwise = Playing w : play rest
-        play [] = []
         collision (x:xs) = any (== x) (tail xs)
         outside (maxr, maxc) (r, c) =
             r < 1 || r > maxr || c < 1 || c > maxc
+
+transitions game =
+    P.scan advance game id
+    >-> P.map toGameState
+    >-> takeUntilAfter isGameOver
+    >-> deltas
+    where
+        isGameOver GameOver = True
+        isGameOver (Playing _) = False
 
 
 -- User input
@@ -100,9 +126,31 @@ parseCommand c = case c of
     'd' -> Just $ Go East
     _   -> Nothing
 
-parseInput :: [Char] -> [Direction]
-parseInput i =
-    map fromCommand $ takeWhile (/= Quit) $ mapMaybe parseCommand i
+getCommands :: Producer Command IO ()
+getCommands = forever $ do
+    c <- lift getChar
+    case parseCommand c of
+        Nothing -> return ()
+        Just x -> yield x
+
+removeOpposites :: Monad m => Pipe Direction Direction m r
+removeOpposites = do
+    first <- await
+    yield first
+    loop first
+    where
+        loop prev = do
+            next <- await
+            if next == opposite prev
+                then loop prev
+                else yield next  >> loop next
+
+getDirections :: Direction -> Producer Direction IO ()
+getDirections start =
+    getCommands
+    >-> P.takeWhile (/= Quit)
+    >-> P.map fromCommand
+    >-> removeOpposites
     where fromCommand (Go x) = x
 
 
@@ -150,7 +198,8 @@ initialWorld = World { snake = [(5, x)| x <- [10..13]]
 main = do
     initScreen
     drawBorder initialWorld
-    input <- getContents
-    let states = playGame initialWorld (parseInput input)
     drawWorld initialWorld
-    mapM_ drawUpdate $ zip states (tail states)
+
+    runEffect $ for (getDirections (direction initialWorld)
+                     >-> transitions initialWorld)
+                (lift . drawUpdate)
