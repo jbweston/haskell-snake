@@ -153,8 +153,8 @@ removeOpposites = do
                 then loop prev
                 else yield next  >> loop next
 
-getDirections :: Direction -> Producer Direction IO ()
-getDirections start =
+getDirections :: Producer Direction IO ()
+getDirections =
     getCommands
     >-> P.takeWhile (/= Quit)
     >-> P.map fromCommand
@@ -222,7 +222,7 @@ main = do
     (mO, mI) <- spawn unbounded
     (dO, dI) <- spawn $ latest initialDir
 
-    inputTask <- run $ getDirections initialDir >-> to (mO <> dO)
+    inputTask <- run $ getDirections >-> to (mO <> dO)
     delayedTask <- run $ from dI >-> rateLimit 1 >-> to mO
     drawingTask <- run $ for
         (from mI >-> transitions initialWorld)
