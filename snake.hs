@@ -50,7 +50,7 @@ deltas = do
 
 rateLimit :: Int -> Pipe b b IO ()
 rateLimit t = forever $ do
-    lift $ threadDelay (t * 1000000)
+    lift $ threadDelay (t * 100000)
     await >>= yield
 
 
