@@ -7,3 +7,6 @@ runs in the terminal, written in Haskell.
 
 This is just a toy project to learn how to structure a small
 program in Haskell.
+
+### Demo
+![demo](demo.gif)
