@@ -193,8 +193,14 @@ drawWorld = renderWorld '@' '#'
 clearWorld = renderWorld ' ' ' '
 
 drawUpdate :: (GameState, GameState) -> IO ()
-drawUpdate (_, GameOver) = clearScreen >> putStrLn "You died!"
 drawUpdate (Playing old, Playing new) = clearWorld old >> drawWorld new
+drawUpdate (Playing w, GameOver) = do
+    let text = "You died!"
+        (r, c) = limits w
+    clearScreen
+    setCursorPosition (r`div`2) ((c - length text)`div`2)
+    putStrLn "You died!"
+    setCursorPosition r 0
 
 initialWorld = World { snake = [(5, x)| x <- [10..13]]
                      , food = (5, 5)
